@@ -4,7 +4,7 @@ Hi, I'm **Aliza Kamran**, an automation engineer in Karachi. I build n8n workflo
 
 This repo holds sanitized, importable examples of that work. All credentials, tokens, hostnames, IDs, and client or company names are replaced with placeholders.
 
-- LinkedIn: https://www.linkedin.com/in/alizakamran-791752202
+- LinkedIn: https://www.linkedin.com/in/alizakamran04
 - Email: aliza.kamran04@gmail.com
 - CV: [docs/Aliza_Kamran_CV.pdf](docs/Aliza_Kamran_CV.pdf)
 
