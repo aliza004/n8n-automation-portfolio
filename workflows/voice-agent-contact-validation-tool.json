@@ -1,0 +1,617 @@
+{
+  "name": "Voice Agent - Contact Validation Tool",
+  "nodes": [
+    {
+      "id": "150c7abf-ca6c-489f-ee5c-b82fbb7a9bc4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3184,
+        -224
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/contact-validation",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "3b3cf844-607b-5323-4417-99a45e396cb1",
+      "name": "Normalize Vapi request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1808,
+        -608
+      ],
+      "parameters": {
+        "jsCode": "const input=$input.first().json;\nconst body=input.body??{};\nconst message={...(body.message??{})};\nconst raw=message.toolCalls??message.toolCallList??message.toolWithToolCallList??[];\nconst calls=raw.map(entry=>{\n const call=entry.toolCall??entry;\n const f=call.function??{};\n let args=f.arguments??call.parameters??call.arguments??{};\n if(typeof args==='string'){try{args=JSON.parse(args);}catch{args={};}}\n args=Object.fromEntries(Object.entries(args).map(([key,value])=>[key.trim(),value]));\n return {...call,id:call.id??entry.id,function:{...f,name:f.name??call.name,arguments:args}};\n});\nmessage.toolCalls=calls;message.toolWithToolCallList=calls;\nmessage.customer=message.customer??message.call?.customer??{};\nreturn [{json:{...input,body:{...body,message},vapiArgs:calls[0]?.function?.arguments??{},migrationValidCall:message.type==='tool-calls'&&calls.length===1&&Boolean(calls[0].id&&calls[0].function.name)}}];"
+      }
+    },
+    {
+      "id": "9581d13d-ab5f-bddf-8278-6d5782b71a48",
+      "name": "Single valid tool call",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1552,
+        -608
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "85054e5a-5d7c-8538-5b86-459b5f765422",
+              "leftValue": "={{ $json.migrationValidCall }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca4c5bf9-dbbb-76ee-8aa6-64574317464a",
+      "name": "Event = tool-call1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2960,
+        -224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d4e1b675-7521-89bb-ade0-3b77b53f013f",
+              "leftValue": "={{ $json.body.message.type }}",
+              "rightValue": "tool-calls",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6830e1c9-c942-f11f-0a91-7f945f1b9698",
+      "name": "Switch1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2736,
+        -224
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1bf6a4ad-10e4-5035-d343-a606960d4014",
+                    "leftValue": "={{ $json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "_verifyContactExistence_orch",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "c2e6d5e3-25bd-505a-1c15-f2f51fac1848",
+      "name": "Code in JavaScript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        -224
+      ],
+      "parameters": {
+        "jsCode": "const raw = JSON.stringify(items[0].json);\nconst parsed = JSON.parse(raw);\n\nconst userName = parsed.vapiArgs.user.toLowerCase();\n\nreturn [{\n  json: {\n    userName: userName\n  }\n}];"
+      }
+    },
+    {
+      "id": "b39e9233-3342-0d64-c6f1-58f41a2a0b96",
+      "name": "Select rows from a table1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2288,
+        -224
+      ],
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "voice_agent_user_schema",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "name_user",
+              "value": "={{ $json.userName }}"
+            },
+            {
+              "column": "deleted_at",
+              "condition": "IS NULL"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "a397ab27-6378-4d14-bad1-43af3323a477",
+      "name": "User found 1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2176,
+        -112
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "66a80e9f-d142-3292-b751-e7f758d9e8b1",
+              "leftValue": "={{ Boolean($json.id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "30d3dcd8-7766-1021-9ab0-185ee528bf11",
+      "name": "If client",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2064,
+        -224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d02fcc45-e6fe-5108-50cc-540d824b2dc1",
+              "leftValue": "={{ $('Switch1').item.json.body.message.customer.number }}",
+              "rightValue": "={{ $json.phone }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "122bd393-3251-2a0c-9b31-9bfb01230308",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1840,
+        128
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "4412225f-e5b3-2664-3b8c-2e1d9b7b10ae",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1840,
+        -112
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=phone Number: {{ $('Switch1').item.json.body.message.customer.number }}\n\nUse the tool \"contactValidation_\"",
+        "options": {
+          "systemMessage": "=You are an orchestrator agent. Your job is to validate the contact for {{ $json.name_user }}.\n\n- Always use the tool relevant to the user.\n\nDo not say anything like \"the caller is X and not {{ $json.name_user }}\" when a contact is found; it sounds robotic.\n\nInstead return: \"the caller is >caller<, with phone number: +XXXXXXXXXXX, email address: abc@example.com, proceed to business call mode and use these details for the caller\"\n\nIf the caller is not found in contacts, simply return \"no info found, collect JUST the name and move to business call mode\""
+        }
+      }
+    },
+    {
+      "id": "4c4c745a-bee7-069e-03ef-a9f2467fa67f",
+      "name": "contactValidation_sb",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1712,
+        128
+      ],
+      "parameters": {
+        "description": "call this tool to check the contact details for the user",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SUBWORKFLOW_ID",
+          "cachedResultName": "Validate contact (sub-workflow)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phoneNumber": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('phoneNumber', `phone number in format \"+XXXXXXXXXXX\"`, 'string') }}",
+            "user": "={{ String($('Normalize Vapi request').first().json.vapiArgs.user ?? '').trim().toLowerCase() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "phoneNumber",
+              "displayName": "phoneNumber",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user",
+              "displayName": "user",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "fd3feb4f-f6b2-b8e6-c507-22ee0947be9b",
+      "name": "Edit Tool Result3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1488,
+        -352
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n    \"results\": [\n        {\n            \"toolCallId\": \"{{ $('Normalize Vapi request').item.json.body.message.toolCalls[0].id }}\",\n            \"result\": \"Say: 'I see it's {{ $json.name_user }} reaching out, could you please provide the passkey for verification?'\"\n        }\n    ]\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "80739fd9-14f1-c437-1690-f1da57474a88",
+      "name": "Edit Tool Result4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1488,
+        -112
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n    \"results\": [\n        {\n            \"toolCallId\": \"{{ $('Normalize Vapi request').item.json.body.message.toolCalls[0].id }}\",\n            \"result\": {{ $json.output.toJsonString() }}\n        }\n    ]\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b253c9e1-934c-5ec2-7063-3f1caab0db43",
+      "name": "Respond to Webhook10",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1264,
+        -224
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "ff8d035f-550e-f342-b4c4-6c38b0f60035",
+      "name": "Unsupported request response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1296,
+        -352
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {results: ($('Normalize Vapi request').first().json.body.message.toolCalls ?? []).map(c=>({toolCallId:c.id,result:'This request is not supported on this endpoint. Send one supported tool call at a time.'}))} }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "11c3cc33-6ee7-29a7-a4d1-e7dd2fc009c3",
+      "name": "User not found response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -800,
+        1008
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {results:[{toolCallId:$('Normalize Vapi request').first().json.body.message.toolCalls[0].id,result:'No active user was found for this request. No database changes were made.'}]} }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Vapi request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Vapi request": {
+      "main": [
+        [
+          {
+            "node": "Single valid tool call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Single valid tool call": {
+      "main": [
+        [
+          {
+            "node": "Event = tool-call1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unsupported request response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event = tool-call1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unsupported request response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Select rows from a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table1": {
+      "main": [
+        [
+          {
+            "node": "User found 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User found 1": {
+      "main": [
+        [
+          {
+            "node": "If client",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "User not found response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If client": {
+      "main": [
+        [
+          {
+            "node": "Edit Tool Result3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Tool Result4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Tool Result3": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Tool Result4": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "contactValidation_sb": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

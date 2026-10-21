@@ -1,0 +1,336 @@
+{
+  "name": "Voice Agent - Request Email Collection",
+  "nodes": [
+    {
+      "id": "150c7abf-ca6c-489f-ee5c-b82fbb7a9bc4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        144
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/request-email-collection",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "80857c46-18cc-1d82-d26c-1b0b1ec3251e",
+      "name": "Parse Vapi call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        144
+      ],
+      "parameters": {
+        "jsCode": "const m=$json.body?.message??{};\nconst calls=m.toolCallList??m.toolCalls??m.toolWithToolCallList?.map(x=>x.toolCall)??[];\nconst tc=calls[0]??{};\nconst number=(v)=>typeof v==='string'?v.trim():'';\nconst caller=number(m.artifact?.variables?.customer?.number||m.call?.customer?.number||m.customer?.number);\nconst agents=[m.phoneNumber?.number,m.call?.phoneNumber?.number,m.artifact?.variables?.phoneNumber?.number].filter(Boolean).map(number);\nconst agent=agents[0]??'';\nconst alt=[m.call?.customer?.number,m.customer?.number].filter(Boolean).map(number);\nconst valid=m.type==='tool-calls'&&calls.length===1&&tc.function?.name==='_requestEmailCollection_orch'&&!!tc.id&&!!m.call?.id&&/^\\+[1-9]\\d{7,14}$/.test(caller)&&/^\\+[1-9]\\d{7,14}$/.test(agent)&&alt.every(x=>x===caller)&&agents.every(x=>x===agent);\nreturn [{json:{valid,callerPhone:caller,agent,call_id:m.call?.id??'',tool_call_id:tc.id??'',status:'invalid_call_context',messageSent:false}}];"
+      }
+    },
+    {
+      "id": "d0642992-14a6-7f2e-685a-fa04ad3ab3a3",
+      "name": "Valid call context",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fab870d4-4355-e6c9-d0fd-1a52af0fbb4f",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a443b792-157d-5aa6-76ee-7d74e5185c7a",
+      "name": "Begin collection",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        80
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email_collection_schema.begin_request($1,$2,$3,$4) AS result;",
+        "options": {
+          "queryReplacement": "={{ [$json.callerPhone,$json.agent,$json.call_id,$json.tool_call_id] }}"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "3fffc30a-b97a-9bc0-0078-28ed182d449f",
+      "name": "Collection result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        80
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$json.result??{should_send:false,status:'storage_error',messageSent:false}}];"
+      }
+    },
+    {
+      "id": "fe613ddb-1b98-4b01-c956-2e5a231d171c",
+      "name": "Send new request",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5b3c87c7-a62c-6864-2a17-513f2387dc4b",
+              "leftValue": "={{ $json.should_send }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a5838877-650f-cd0e-e8ef-b1f36eca4aca",
+      "name": "Send collection SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $json.from }}",
+        "to": "={{ $json.to }}",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "twilioApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "id": "a788de53-ed03-3154-b8d4-bffb60a68cc0",
+      "name": "Record SMS result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE email_collection_schema.requests SET sms_sid=NULLIF($2,''),sms_status=$3,status=CASE WHEN status<>'sending' THEN status WHEN NULLIF($2,'') IS NOT NULL AND $3 NOT IN ('failed','undelivered','canceled') THEN 'pending' ELSE 'send_unknown' END WHERE id=$1::uuid RETURNING jsonb_build_object('status',status,'messageSent',sms_sid IS NOT NULL AND sms_status NOT IN ('failed','undelivered','canceled'),'request_id',id) AS result;",
+        "options": {
+          "queryReplacement": "={{ [$('Collection result').first().json.request_id,$json.sid??'', $json.status??'unknown'] }}"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "f053a59f-4c03-615e-6118-a0fe2695ee55",
+      "name": "Vapi response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        144
+      ],
+      "parameters": {
+        "jsCode": "const x=$json.result??$json; const sent=x.messageSent===true; return [{json:{results:[{toolCallId:$('Parse Vapi call').first().json.tool_call_id,result:JSON.stringify({status:x.status??'unknown',messageSent:sent,alreadyRequested:x.alreadyRequested===true,message:sent?'The email request SMS was accepted. Ask the caller to reply with their email address; continue the call.':x.status==='completed'?'The email address was already collected.':'The SMS could not be confirmed. Do not claim it was sent; offer to collect the address verbally.'})}]}}];"
+      }
+    },
+    {
+      "id": "70d9c932-d1f3-43aa-28f9-059b7ad96cf4",
+      "name": "Respond to Vapi",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2016,
+        144
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Vapi call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Vapi call": {
+      "main": [
+        [
+          {
+            "node": "Valid call context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid call context": {
+      "main": [
+        [
+          {
+            "node": "Begin collection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vapi response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Begin collection": {
+      "main": [
+        [
+          {
+            "node": "Collection result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collection result": {
+      "main": [
+        [
+          {
+            "node": "Send new request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send new request": {
+      "main": [
+        [
+          {
+            "node": "Send collection SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vapi response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send collection SMS": {
+      "main": [
+        [
+          {
+            "node": "Record SMS result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record SMS result": {
+      "main": [
+        [
+          {
+            "node": "Vapi response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Vapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

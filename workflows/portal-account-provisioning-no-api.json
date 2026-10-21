@@ -1,0 +1,721 @@
+{
+  "name": "Portal Account Provisioning (No API) - Session Replay",
+  "nodes": [
+    {
+      "id": "4ba3bf23-ab7e-3533-5f06-0e9bad218576",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3376,
+        544
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "151e01f3-003c-3e66-4c66-7b52d14e68ba",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3120,
+        544
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "accounts database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ca0dbad9-2a87-4b2f-69b5-49293387925e",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2752,
+        544
+      ],
+      "parameters": {
+        "jsCode": "const usernames = items\n  .map(item => item.json.userName)\n  .filter(username => typeof username === 'string');\n\nreturn [\n  {\n    json: {\n      existingUsernames: usernames.join(', ')\n    }\n  }\n];"
+      }
+    },
+    {
+      "id": "4412225f-e5b3-2664-3b8c-2e1d9b7b10ae",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -2560,
+        528
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are generating a new user entry for a form.\n\nRules:\n1. Username must start with \"usr\" followed by a 4-digit number, starting from **usr1000** onward (e.g., usr1000, usr1001...).\n2. Do **NOT** use any username that already exists in this list: {{ $json.existingUsernames }}\n3. Email must be in the format: <username>@example.com\n4. Name should be identical to the username.\n5. Password must be 8 to 12 characters long and a secure mix of uppercase and lowercase letters (only text).\n6. Use today’s date from `{{ $now }}` formatted as \"07/17/2025\".\n\nReturn output in JSON format only:\n\n```json\n{\n  \"username\": \"...\",\n  \"email\": \"...\",\n  \"name\": \"...\",\n  \"password\": \"...\",\n  \"date\": \"07/17/2025\"\n}\n```",
+        "hasOutputParser": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "7b4e3e08-be1e-b544-9c2b-024b103c49a9",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -2336,
+        736
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"username\": \"...\",\n  \"email\": \"...\",\n  \"name\": \"...\",\n  \"password\": \"...\",\n  \"date\": \"07/17/2025\"\n}"
+      }
+    },
+    {
+      "id": "bbcb4f05-516b-c844-54a9-cb01a74c187a",
+      "name": "Google Gemini Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2528,
+        736
+      ],
+      "parameters": {
+        "options": {}
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      }
+    },
+    {
+      "id": "d6f957c4-44e7-14c0-aedb-00fddf43ecb3",
+      "name": "GET Login Page1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -2112,
+        560
+      ],
+      "parameters": {
+        "url": "https://portal.example.com/login",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "2e5fb75a-06a9-cd27-d6fd-766231684b0f",
+      "name": "Extract Tokens1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1888,
+        560
+      ],
+      "parameters": {
+        "functionCode": "const cookieHeader = $input.first().json.headers['set-cookie'];\n\nif (!cookieHeader) {\n  throw new Error('No set-cookie header found');\n}\n\nconst xsrf = cookieHeader.find(c => c.includes('XSRF-TOKEN'));\nconst xsrfToken = xsrf.split(';')[0];\nconst xsrfTokenValue = decodeURIComponent(xsrfToken.split('=')[1]);\n\nconst session = cookieHeader.find(c => c.includes('app_session'));\nconst sessionCookie = session.split(';')[0];\n\nreturn [{\n  xsrfToken,\n  xsrfTokenValue,\n  sessionCookie\n}];"
+      }
+    },
+    {
+      "id": "ab7589a9-f828-af12-ca2f-6a3589bd527a",
+      "name": "Login1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1648,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://portal.example.com/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-XSRF-TOKEN",
+              "value": "={{ $json.xsrfTokenValue }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.xsrfToken }}; {{ $json.sessionCookie }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "YOUR_PORTAL_USERNAME"
+            },
+            {
+              "name": "password",
+              "value": "YOUR_PORTAL_PASSWORD"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "69e99f42-8f4f-c504-047b-d0159b1c8af5",
+      "name": "Extract Session Cookie1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1424,
+        560
+      ],
+      "parameters": {
+        "functionCode": "const response = $input.first().json;\nconst cookieHeader = response.headers['set-cookie'];\n\nif (!cookieHeader) {\n  throw new Error('No cookies found');\n}\n\n// Extract XSRF token\nconst xsrfCookie = cookieHeader.find(c => c.includes('XSRF-TOKEN'));\nif (!xsrfCookie) {\n  throw new Error('XSRF token not found');\n}\n\nconst xsrfToken = xsrfCookie.split(';')[0];\nconst xsrfValue = decodeURIComponent(xsrfToken.split('=')[1]);\n\n// Extract session\nconst sessionCookie = cookieHeader.find(c => c.includes('app_session'));\nif (!sessionCookie) {\n  throw new Error('Session cookie not found');\n}\n\nconst session = sessionCookie.split(';')[0];\n\nreturn [{\n  xsrfToken: xsrfToken,\n  xsrfValue: xsrfValue,\n  sessionCookie: session\n}];"
+      }
+    },
+    {
+      "id": "72f3da60-6a6d-25ab-b564-5e4225b23dcf",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -928,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://portal.example.com/admin-api/clients?editing=true&editMode=create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-XSRF-TOKEN",
+              "value": "={{ $('Extract Session Cookie1').item.json.xsrfValue }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $('Extract Tokens1').item.json.xsrfToken }}; {{ $('Extract Session Cookie1').item.json.sessionCookie }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $('AI Agent').item.json.output.name }}"
+            },
+            {
+              "name": "username",
+              "value": "={{ $('AI Agent').item.json.output.username }}"
+            },
+            {
+              "name": "plain_password",
+              "value": "={{ $('AI Agent').item.json.output.password }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $('AI Agent').item.json.output.email }}"
+            },
+            {
+              "name": "registered_date",
+              "value": "={{ $('AI Agent').item.json.output.date }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "20f33495-5c2d-35ea-42e1-c6ba511a4248",
+      "name": "Google Sheets1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -832,
+        768
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "accounts database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "userName",
+              "displayName": "userName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "password",
+              "displayName": "password",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trialLink",
+              "displayName": "trialLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientEndLink",
+              "displayName": "clientEndLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "value": {
+            "userName": "={{ $('AI Agent').item.json.output.username }}",
+            "name": "={{ $('AI Agent').item.json.output.name }}",
+            "password": "N/A (already exists)",
+            "trialLink": "N/A (already exists)",
+            "clientEndLink": "N/A (already exists)",
+            "email": "={{ $('AI Agent').item.json.output.email}}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "19832a0d-ade5-e32f-0308-a8689b821206",
+      "name": "Edit Fields2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        560
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13638535-e00f-c136-1552-4c260701f1d2",
+              "name": "link",
+              "value": "=https://links.example.com/api/list/{{ $('AI Agent').item.json.output.email }}/{{ $('AI Agent').item.json.output.password }}",
+              "type": "string"
+            },
+            {
+              "id": "71b15b04-63a2-718c-5065-3a9de01209d0",
+              "name": "trial details",
+              "value": "=https://portal.example.com{{ $json.redirect.url }}",
+              "type": "string"
+            },
+            {
+              "id": "6a964c3d-ffc5-fd22-1565-c76b0e17f17e",
+              "name": "resourceId",
+              "value": "={{ $json.redirect.url.split('/').pop() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1d9c24ce-89ce-65ae-5e17-3f1101d07ad9",
+      "name": "Google Sheets2",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -400,
+        544
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "accounts database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "userName",
+              "displayName": "userName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "password",
+              "displayName": "password",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trialLink",
+              "displayName": "trialLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientEndLink",
+              "displayName": "clientEndLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "value": {
+            "trialLink": "={{ $json.link }}",
+            "clientEndLink": "={{ $json['trial details'] }}",
+            "userName": "={{ $('AI Agent').item.json.output.username }}",
+            "name": "={{ $('AI Agent').item.json.output.name }}",
+            "password": "={{ $('AI Agent').item.json.output.password }}",
+            "email": "={{ $('AI Agent').item.json.output.email}}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "1a96b28b-80dc-6be9-9d2e-548c8b17f552",
+      "name": "HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        544
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://portal.example.com/admin-api/clients/action?action=add-subscription&pivotAction=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-XSRF-TOKEN",
+              "value": "={{ $('Extract Session Cookie1').item.json.xsrfValue }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $('Extract Tokens1').item.json.xsrfToken }}; {{ $('Extract Session Cookie1').item.json.sessionCookie }}"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "subscription_type",
+              "value": "Trial (0 credits)"
+            },
+            {
+              "name": "resourceId",
+              "value": "={{ $('Edit Fields2').item.json.resourceId }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "GET Login Page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Login Page1": {
+      "main": [
+        [
+          {
+            "node": "Extract Tokens1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Tokens1": {
+      "main": [
+        [
+          {
+            "node": "Login1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login1": {
+      "main": [
+        [
+          {
+            "node": "Extract Session Cookie1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Session Cookie1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

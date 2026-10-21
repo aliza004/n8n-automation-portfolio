@@ -1,0 +1,1964 @@
+{
+  "name": "SMS Send - Idempotency, Contact Policy and Approval Drafts",
+  "nodes": [
+    {
+      "id": "150c7abf-ca6c-489f-ee5c-b82fbb7a9bc4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -6944,
+        1600
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/sms/send",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "4c48a953-37de-7b56-6491-ba63341d9943",
+      "name": "Check Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6720,
+        1600
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f9a56a3-6c5c-ffe3-f628-aa03aab84a50",
+              "leftValue": "={{ $('Webhook').item.json.body.user_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f2517b14-3eae-bb66-cdcc-845c7ba86276",
+              "leftValue": "={{ $('Webhook').item.json.body.number_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8a8632ea-f635-c3eb-53b2-badacc233e7b",
+              "leftValue": "={{ $('Webhook').item.json.body.to_number }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "644a633a-c9d2-c752-3db9-1f63882f672d",
+              "leftValue": "={{ $('Webhook').item.json.body.body }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b04e7816-b84d-a0ea-f96a-f841cbb7cc53",
+      "name": "Verify User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6496,
+        1504
+      ],
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "user_schema",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "value": "={{ $('Webhook').item.json.body.user_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "f9dd8f9a-21f2-9d72-0d9e-2d8b8462cb83",
+      "name": "User Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6272,
+        1504
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "34196312-5db3-afa2-2326-eb64bb3f23c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9eb8b64c-7503-b67c-3135-4f6a7e526a3d",
+      "name": "Fetch SMS Number",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6048,
+        1408
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT number_id, phone_number, tenant_id, workspace_id\nFROM sms_schema.sms_numbers\nWHERE number_id = $1 AND user_id = $2 AND is_active = true\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('Webhook').item.json.body.number_id, $('Webhook').item.json.body.user_id ] }}"
+        }
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "7e8ec68c-e460-c601-6033-3dbcbf95bca0",
+      "name": "Number Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -5824,
+        1408
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f89926ce-1a3f-6294-83cc-2faf26164ccc",
+              "leftValue": "={{ $json.number_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e1a17f60-7124-6448-a81d-a08bcab11f7d",
+      "name": "Check Contact Policy",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -5600,
+        1312
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, sms_send_policy, blockers\nFROM contact_schema.contacts\nWHERE phones->>'main' = $1 AND tenant_id = $2 AND workspace_id = $3\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('Webhook').item.json.body.to_number, $json.tenant_id, $json.workspace_id ] }}"
+        }
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "bdd92785-f01c-e722-a902-af89e1f56b3b",
+      "name": "Evaluate Policy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5376,
+        1312
+      ],
+      "parameters": {
+        "jsCode": "const contact = $input.first().json;\nconst blockers = contact.blockers || [];\nif (blockers.length > 0) return [{ json: { action: 'block', policy: 'blocked', reason: blockers.join(', ') } }];\nconst policy = contact.contact_id ? (contact.sms_send_policy || 'approval_required') : 'approval_required';\nif (policy === 'blocked') return [{ json: { action: 'block', policy, reason: 'Contact sms_send_policy is blocked' } }];\nif (policy === 'autonomous_allowed') return [{ json: { action: 'send', policy } }];\nreturn [{ json: { action: 'pending', policy } }];"
+      }
+    },
+    {
+      "id": "867a8c45-e846-f5de-8437-feb839322927",
+      "name": "Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -5152,
+        1312
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a5bc465f-1909-7125-21cd-4ca4b24eb3ef",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "send",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dfc3584d-5a1f-25dc-26a9-e322440c4332",
+      "name": "Blocked?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -5152,
+        1520
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3b781ddf-fd66-62d9-d384-e9a70d9615e5",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "block",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6ad5d64d-e23a-0a99-4284-7ea050333fa3",
+      "name": "Retrieve Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -4928,
+        1216
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-N8N-HOST/webhook/credentials/retrieve",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  session_token: $('Webhook').item.json.body.session_token || $('Webhook').item.json.headers?.['x-session-token'],\n  tenant_id: $('Fetch SMS Number').item.json.tenant_id,\n  workspace_id: $('Fetch SMS Number').item.json.workspace_id,\n  scope: \"number\",\n  number_id: $('Fetch SMS Number').item.json.number_id,\n  requesting_agent_id: $('Webhook').item.json.body.agent_id || $('Webhook').item.json.body.user_id,\n  requested_capability: \"sms\"\n}) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "d7ebaae3-798d-047d-2bb4-39b8fa773c95",
+      "name": "Credentials OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4704,
+        1216
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4fa94cbf-22c4-4d82-dc37-36aec8a56a8c",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e75a00be-d8f7-e48c-0a5f-f4d745a889bd",
+      "name": "Prepare Twilio Transport",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4592,
+        1008
+      ],
+      "parameters": {
+        "jsCode": "const c=$json.credential;\nif(!c||!/^AC[0-9a-f]{32}$/i.test(c.account_sid||'')||!/^SK[0-9a-f]{32}$/i.test(c.api_key_sid||'')||typeof c.api_key_secret!=='string'||!c.api_key_secret.length||c.api_key_secret.length>512)throw new Error('TWILIO_CREDENTIAL_INVALID');\nreturn [{json:{account_sid:c.account_sid,authorization:'Basic '+Buffer.from(c.api_key_sid+':'+c.api_key_secret,'utf8').toString('base64')}}];"
+      }
+    },
+    {
+      "id": "691986f7-b451-5895-25a5-1f472e9190ce",
+      "name": "Send via Twilio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -4480,
+        1120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $json.account_sid }}/Messages.json",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "={{ $('Fetch SMS Number').item.json.phone_number }}"
+            },
+            {
+              "name": "To",
+              "value": "={{ $('Webhook').item.json.body.to_number }}"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $('Webhook').item.json.body.body }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.authorization }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f133ffec-24c6-33e8-366b-f1bb1f91c04b",
+      "name": "Store in sms_messages",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -4256,
+        1120
+      ],
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "sms_schema",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "sms_messages",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "number_id": "={{ $('Fetch SMS Number').item.json.number_id }}",
+            "user_id": "={{ $('Webhook').item.json.body.user_id }}",
+            "tenant_id": "={{ $('Fetch SMS Number').item.json.tenant_id }}",
+            "workspace_id": "={{ $('Fetch SMS Number').item.json.workspace_id }}",
+            "twilio_message_sid": "={{ $json.sid }}",
+            "direction": "outbound-api",
+            "from_number": "={{ $('Fetch SMS Number').item.json.phone_number }}",
+            "to_number": "={{ $('Webhook').item.json.body.to_number }}",
+            "body": "={{ $('Webhook').item.json.body.body }}",
+            "status": "={{ $json.status }}",
+            "num_segments": "={{ $json.num_segments ?? 1 }}",
+            "num_media": 0,
+            "price_unit": "USD",
+            "date_sent": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "twilio_message_sid"
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "dbbd4aeb-1122-f725-31da-314daa719ff2",
+      "name": "Success: Sent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4032,
+        1120
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc8b6990-0c91-9c3f-8e29-1ccd539ce869",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "9ab029f1-a064-e4d2-6bd4-c77587576f9b",
+              "name": "message",
+              "value": "Message sent successfully.",
+              "type": "string"
+            },
+            {
+              "id": "11018d5d-b259-ec21-725f-3ada6a19b1f7",
+              "name": "status",
+              "value": "sent",
+              "type": "string"
+            },
+            {
+              "id": "2bb64535-cd5f-8448-d559-be9210e05d6e",
+              "name": "twilio_message_sid",
+              "value": "={{ $('Send via Twilio').item.json.sid }}",
+              "type": "string"
+            },
+            {
+              "id": "71d90dcb-6ca3-e992-8d47-6c5cc9ceb089",
+              "name": "to_number",
+              "value": "={{ $('Webhook').item.json.body.to_number }}",
+              "type": "string"
+            },
+            {
+              "id": "caa2ca61-a8dd-9fd4-0dff-7f7176e75cbf",
+              "name": "from_number",
+              "value": "={{ $('Fetch SMS Number').item.json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "927ee60a-b8a3-dc77-e1ad-8de379c892b7",
+              "name": "sms_send_policy",
+              "value": "autonomous_allowed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a6d4f9f6-621c-4632-0e19-d3167e4295da",
+      "name": "Create Pending Draft",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -4928,
+        1424
+      ],
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "sms_schema",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "sms_drafts",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "number_id": "={{ $('Fetch SMS Number').item.json.number_id }}",
+            "user_id": "={{ $('Webhook').item.json.body.user_id }}",
+            "tenant_id": "={{ $('Fetch SMS Number').item.json.tenant_id }}",
+            "workspace_id": "={{ $('Fetch SMS Number').item.json.workspace_id }}",
+            "to_number": "={{ $('Webhook').item.json.body.to_number }}",
+            "body": "={{ $('Webhook').item.json.body.body }}",
+            "status": "pending_approval",
+            "submitted_by": "={{ $('Webhook').item.json.body.agent_id ?? null }}"
+          },
+          "matchingColumns": [
+            "draft_id"
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "de0e258c-c2b0-1c59-5eea-fd72e194cdc9",
+      "name": "Success: Pending",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4704,
+        1424
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8d53f92-32b4-7911-5f4c-4fda7598ea9f",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2186fb90-8ccd-d24a-04ca-82098fc3cabb",
+              "name": "message",
+              "value": "Message requires approval before sending. A draft has been created and submitted for approval.",
+              "type": "string"
+            },
+            {
+              "id": "9fcaf758-3b56-5e39-f765-d13d2046e978",
+              "name": "draft_id",
+              "value": "={{ $json.draft_id }}",
+              "type": "string"
+            },
+            {
+              "id": "10e8c1dd-190b-5a4f-c5dc-b63970cda6ee",
+              "name": "status",
+              "value": "pending_approval",
+              "type": "string"
+            },
+            {
+              "id": "d1304cab-9ccf-262f-b794-f452417365fe",
+              "name": "sms_send_policy",
+              "value": "={{ $('Evaluate Policy').item.json.policy }}",
+              "type": "string"
+            },
+            {
+              "id": "f15ce77f-ecc2-06cb-bae1-db936e90d6a6",
+              "name": "to_number",
+              "value": "={{ $('Webhook').item.json.body.to_number }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "08795063-80b3-c18a-b25b-697d402759ed",
+      "name": "Error: Missing Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6496,
+        1744
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8c15cd21-200a-b1a7-f332-9e63a52c1e5f",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "8b29cb13-d459-0258-3f75-85379e8d341c",
+              "name": "error",
+              "value": "Missing required fields: user_id, number_id, to_number and body are required.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "febbf6f8-0bfd-de08-6219-01c107ecff74",
+      "name": "Error: User Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6048,
+        1632
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a681229d-c7f5-31f6-0f60-8a2253ea7db4",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "653e5731-2c63-aa27-c65e-fa923cf6cf24",
+              "name": "error",
+              "value": "User not found.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "03fa42ec-a837-449a-4360-31a106146679",
+      "name": "Error: Number Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5600,
+        1616
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c913b9af-0263-0609-2d76-6dc995dd0150",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "0bc4dfaa-231b-4b69-6dee-1aa6ddac9de5",
+              "name": "error",
+              "value": "SMS number not found or does not belong to this user.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4737ef6b-7e7c-5534-236b-3bf1cc0da700",
+      "name": "Error: Blocked",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4928,
+        1616
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d8ca09f7-f2bd-4e80-1746-7cabd476e57f",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "a30dfbcc-2e15-8b08-ba1f-98614b6ed926",
+              "name": "error",
+              "value": "={{ 'Send blocked by contact policy: ' + $json.reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6a86b98b-00a0-49c8-b9b1-043be5b18316",
+      "name": "Error: Credentials Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4480,
+        1216
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f3057621-745c-888e-6869-01d7f61ecb14",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "27aa785d-2029-6d55-b83b-6c531eb460cc",
+              "name": "error",
+              "value": "={{ $json.error || 'Credential retrieval failed or SMS not enabled for this number.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5fe99bc6-0c3e-653d-a73c-ae235ff13f18",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -3808,
+        1600
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "a3e5187b-7f8e-8fbc-16d0-edd963224bef",
+      "name": "Has Idempotency Key?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6832,
+        1100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0a278173-96a3-0704-3c4f-3c2d9f08042b",
+              "leftValue": "={{ $('Webhook').item.json.body.idempotency_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3ee4f10d-5d61-13b3-2da6-4fffefa75a1f",
+      "name": "Compute Request Hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6832,
+        900
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = $('Webhook').item.json.body;\nconst hash = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');\nreturn [{ json: { hash } }];"
+      }
+    },
+    {
+      "id": "5a5ed1aa-d2e1-ebd0-0f27-795a64c12ef1",
+      "name": "Claim Idempotency Key",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -6632,
+        900
+      ],
+      "parameters": {
+        "mode": "once",
+        "options": {},
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "Shared - Idempotency Key Handler",
+          "mode": "id",
+          "value": "YOUR_IDEMPOTENCY_WORKFLOW_ID"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "endpoint": "/sms/send",
+            "id": "",
+            "idempotency_key": "={{ $('Webhook').item.json.body.idempotency_key }}",
+            "mode": "claim",
+            "request_hash": "={{ $('Compute Request Hash').item.json.hash }}",
+            "response_body": "",
+            "response_status": "",
+            "tenant_id": "={{ $('Resolve Tenant For Idempotency').item.json.tenant_id }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "4762b620-c552-af33-423b-8bc69d0dd485",
+      "name": "Claimed New?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6432,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9f4f0853-b426-a068-28bc-f9d7ec17abcc",
+              "leftValue": "={{ String($json.claimed) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e8743570-e427-7575-9a0b-6e91a047bb2e",
+      "name": "Store Claim Id",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6232,
+        800
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0ad5c5ad-128f-d06b-3a22-7460ff8199fe",
+              "name": "claim_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "c1f516da-540e-9a15-40d7-2e879dcf7c37",
+      "name": "Is Cached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6232,
+        1000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "aac2225a-4c3f-0f2d-f1c1-7d652e765332",
+              "leftValue": "={{ String($json.cached) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e4482cab-5c26-5831-2ee1-0640a36e356b",
+      "name": "Build Cached Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6032,
+        950
+      ],
+      "parameters": {
+        "jsonOutput": "={{ JSON.stringify($json.response_body) }}",
+        "mode": "raw",
+        "options": {}
+      }
+    },
+    {
+      "id": "a6ea2dc1-66da-2c68-eb4e-57f5f57f8b2c",
+      "name": "Is Conflict?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -6032,
+        1100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f4f1d977-9f44-bf85-7be5-171199000e0d",
+              "leftValue": "={{ String($json.conflict) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "df0992d5-e739-f07b-f9a7-24c940dbe265",
+      "name": "Build Conflict Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5832,
+        1050
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6cd2ecc7-9a2b-4605-a2f9-8c529519496c",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "f758e4ed-2821-c194-1dcd-6ec2ecbf69a0",
+              "name": "error",
+              "value": "Idempotency key was already used with a different request payload.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "5ad28993-f749-1f38-d185-64af0bd9933a",
+      "name": "Is Still Processing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -5832,
+        1200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e17e2e37-ba18-b947-7c0c-26f559d01096",
+              "leftValue": "={{ String($json.still_processing) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0b5b7150-3463-0073-14ed-116b510b256f",
+      "name": "Build Processing Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5632,
+        1150
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "723eb2c2-d265-e5c0-bcf8-b14e43755cd3",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "6a3c6a26-84d7-1e81-df6b-2c7590e6f839",
+              "name": "error",
+              "value": "Request with this idempotency key is already being processed. Please retry shortly.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "00a5b211-904a-9475-7fda-b82986ba0ec2",
+      "name": "Build Retry Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5632,
+        1300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6c2efee2-e034-bba0-83bf-94d690af7444",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "3fa7d54b-9013-090a-b451-1a3fefcb29e5",
+              "name": "error",
+              "value": "Temporary conflict processing this request. Please retry.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "7a27ed1a-6afa-c674-b1cf-a97952873813",
+      "name": "Capture Success Body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3900,
+        1350
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "a165325b-41cc-9b14-07e6-b4bd3769cdaf",
+      "name": "Had Idempotency Key? (Success)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3750,
+        1300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0a278173-96a3-0704-3c4f-3c2d9f08042b",
+              "leftValue": "={{ $('Webhook').item.json.body.idempotency_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7b9e5354-f0fc-4111-bc50-22566c4e7700",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -3600,
+        1200
+      ],
+      "parameters": {
+        "mode": "once",
+        "options": {},
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "Shared - Idempotency Key Handler",
+          "mode": "id",
+          "value": "YOUR_IDEMPOTENCY_WORKFLOW_ID"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "endpoint": "",
+            "id": "={{ $('Store Claim Id').item.json.claim_id }}",
+            "idempotency_key": "",
+            "mode": "complete",
+            "request_hash": "",
+            "response_body": "={{ $json }}",
+            "response_status": 200,
+            "tenant_id": "={{ $('Resolve Tenant For Idempotency').item.json.tenant_id }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "e89ced5c-13fd-e32f-0067-47b4c53d91a8",
+      "name": "Return Success Body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3450,
+        1150
+      ],
+      "parameters": {
+        "jsonOutput": "={{ JSON.stringify($('Capture Success Body').item.json) }}",
+        "mode": "raw",
+        "options": {}
+      }
+    },
+    {
+      "id": "3498e9a9-a13f-daa2-c41c-7ea8fc658089",
+      "name": "Capture Error Body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3900,
+        2050
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "id": "73a91dfd-a257-6506-a14f-dea325cf7636",
+      "name": "Had Idempotency Key? (Error)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3750,
+        2050
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0a278173-96a3-0704-3c4f-3c2d9f08042b",
+              "leftValue": "={{ $('Webhook').item.json.body.idempotency_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "69589d32-0604-4f36-fc80-8259d564b824",
+      "name": "Mark Failed",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -3600,
+        2000
+      ],
+      "parameters": {
+        "mode": "once",
+        "options": {},
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "Shared - Idempotency Key Handler",
+          "mode": "id",
+          "value": "YOUR_IDEMPOTENCY_WORKFLOW_ID"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "endpoint": "",
+            "id": "={{ $('Store Claim Id').item.json.claim_id }}",
+            "idempotency_key": "",
+            "mode": "fail",
+            "request_hash": "",
+            "response_body": "={{ $json }}",
+            "response_status": 200,
+            "tenant_id": "={{ $('Resolve Tenant For Idempotency').item.json.tenant_id }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "7af017f7-3f99-b699-d0c8-08891e7ab221",
+      "name": "Return Error Body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3450,
+        2000
+      ],
+      "parameters": {
+        "jsonOutput": "={{ JSON.stringify($('Capture Error Body').item.json) }}",
+        "mode": "raw",
+        "options": {}
+      }
+    },
+    {
+      "id": "a529fef1-ea53-2422-eae1-0dc6825828db",
+      "name": "Resolve Tenant For Idempotency",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6832,
+        780
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (\n  SELECT tenant_id FROM sms_schema.sms_numbers WHERE number_id = $1\n) AS tenant_id",
+        "options": {
+          "queryReplacement": "={{ [ $('Webhook').item.json.body.number_id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Check Required Fields": {
+      "main": [
+        [
+          {
+            "node": "Verify User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Missing Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify User": {
+      "main": [
+        [
+          {
+            "node": "User Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Found?": {
+      "main": [
+        [
+          {
+            "node": "Fetch SMS Number",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: User Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SMS Number": {
+      "main": [
+        [
+          {
+            "node": "Number Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Number Found?": {
+      "main": [
+        [
+          {
+            "node": "Check Contact Policy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Number Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Contact Policy": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Policy": {
+      "main": [
+        [
+          {
+            "node": "Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action?": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Blocked?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blocked?": {
+      "main": [
+        [
+          {
+            "node": "Error: Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Pending Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Credentials": {
+      "main": [
+        [
+          {
+            "node": "Credentials OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Credentials OK?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Twilio Transport",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Credentials Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Twilio Transport": {
+      "main": [
+        [
+          {
+            "node": "Send via Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Twilio": {
+      "main": [
+        [
+          {
+            "node": "Store in sms_messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in sms_messages": {
+      "main": [
+        [
+          {
+            "node": "Success: Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pending Draft": {
+      "main": [
+        [
+          {
+            "node": "Success: Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Has Idempotency Key?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Idempotency Key?": {
+      "main": [
+        [
+          {
+            "node": "Compute Request Hash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Request Hash": {
+      "main": [
+        [
+          {
+            "node": "Resolve Tenant For Idempotency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Tenant For Idempotency": {
+      "main": [
+        [
+          {
+            "node": "Claim Idempotency Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Idempotency Key": {
+      "main": [
+        [
+          {
+            "node": "Claimed New?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claimed New?": {
+      "main": [
+        [
+          {
+            "node": "Store Claim Id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Cached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Claim Id": {
+      "main": [
+        [
+          {
+            "node": "Check Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Cached?": {
+      "main": [
+        [
+          {
+            "node": "Build Cached Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Conflict?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cached Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Conflict?": {
+      "main": [
+        [
+          {
+            "node": "Build Conflict Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Still Processing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Conflict Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Still Processing?": {
+      "main": [
+        [
+          {
+            "node": "Build Processing Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Retry Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Processing Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Retry Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success: Sent": {
+      "main": [
+        [
+          {
+            "node": "Capture Success Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success: Pending": {
+      "main": [
+        [
+          {
+            "node": "Capture Success Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Success Body": {
+      "main": [
+        [
+          {
+            "node": "Had Idempotency Key? (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Had Idempotency Key? (Success)": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Complete": {
+      "main": [
+        [
+          {
+            "node": "Return Success Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Success Body": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: Missing Fields": {
+      "main": [
+        [
+          {
+            "node": "Capture Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: User Not Found": {
+      "main": [
+        [
+          {
+            "node": "Capture Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: Number Not Found": {
+      "main": [
+        [
+          {
+            "node": "Capture Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: Blocked": {
+      "main": [
+        [
+          {
+            "node": "Capture Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: Credentials Failed": {
+      "main": [
+        [
+          {
+            "node": "Capture Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Error Body": {
+      "main": [
+        [
+          {
+            "node": "Had Idempotency Key? (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Had Idempotency Key? (Error)": {
+      "main": [
+        [
+          {
+            "node": "Mark Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Failed": {
+      "main": [
+        [
+          {
+            "node": "Return Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Error Body": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

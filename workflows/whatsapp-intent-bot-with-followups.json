@@ -1,0 +1,2396 @@
+{
+  "name": "WhatsApp Intent Bot with State Tracking and Follow-ups",
+  "nodes": [
+    {
+      "id": "73eb4827-f0d8-99e9-e58a-2a81679453a3",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        1264
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inquiry",
+        "options": {}
+      }
+    },
+    {
+      "id": "4412225f-e5b3-2664-3b8c-2e1d9b7b10ae",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -1536,
+        1264
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.text.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an assistant that receives user messages from WhatsApp via a webhook. Your task is to analyze the message and return the correct structured query as JSON.\n\nIMPORTANT RULES:\nOnly return the query key as shown in the format below.\n\nThe value of query must be one of the predefined values listed below.\n\nDO NOT return anything else — no explanation, no variations.\n\nIf the user's message does not match any known type, return:\n{ \"query\": \"UNRECOGNIZED_QUERY\" }\nIf the user message does not directly match any known query, try to infer the meaning from past conversation context (e.g., if memory or previous steps indicate they were sent the app link and now say “done” — it likely means CONFIRM_SUCCESSFUL_INSTALL)\n\nAlways return the result in this format:\n{ \"query\": \"<VALID_QUERY_STRING>\" }\n\nList of Valid Queries:\n\"REQUEST_LINK\"\n\n\"CONFIRM_SUCCESSFUL_INSTALL\"\n\n\"INSTALLATION_ISSUE\"\n\n\"ASK_SUBSCRIPTION_DETAILS\"\n\n\"CONFIRM_SUBSCRIPTION\"\n\n\"SUBSCRIPTION_ISSUE\"\n\n\"PAYMENT_MADE\"\n\n\"NO_RESPONSE\"\n\n\"REQUEST_SUPPORT_CALL\"\n\n\"CONFIRM_TRIAL_REQUEST\"\n\n\"BANK_DETAILS_REQUEST\"\n\n\"REPORT_BUFFERING\"\n\n\"REPORT_ACCOUNT_ISSUE\"\n\n\"CONFIRM_DISCOUNT_ACCEPTED\"\n\n\"INSTALLATION_FAILED\"\n\n\"DECLINE_SUPPORT\"\n\n\"CONFIRM_SECOND_TRIAL\"\n\n\"CONFIRM_DISCOUNT_IGNORED\"\n\n\"SEND_CONFIRMATION\"\n\nExamples (for reference only):\n\"Can you send the app link again?\" → { \"query\": \"REQUEST_LINK\" }\n\n\"App keeps crashing.\" → { \"query\": \"INSTALLATION_ISSUE\" }\n\n\"All good, I installed it.\" → { \"query\": \"CONFIRM_SUCCESSFUL_INSTALL\" }\n\n\"Subscribed already!\" → { \"query\": \"CONFIRM_SUBSCRIPTION\" }\n\n"
+        }
+      }
+    },
+    {
+      "id": "7b4e3e08-be1e-b544-9c2b-024b103c49a9",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1360,
+        1520
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{ \"query\": \"REQUEST_LINK\" }"
+      }
+    },
+    {
+      "id": "122bd393-3251-2a0c-9b31-9bfb01230308",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1600,
+        1568
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "901e660c-32c6-c41e-738a-d1c6039d664c",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1488,
+        1488
+      ],
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.messageId }}"
+      }
+    },
+    {
+      "id": "bbc155fb-2b11-1bf6-1c4f-5ff892915e6b",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        912
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a71751a7-1a71-5b85-a01c-3f8520f8fcea",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "REQUEST_LINK",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "10ed48ec-6f17-3231-2244-75c5ef177308",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_SUCCESSFUL_INSTALL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f50a4040-7811-dba3-41cc-4d9567372d95",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "INSTALLATION_ISSUE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b67c4afb-184d-388b-43b2-078a5da106f8",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "ASK_SUBSCRIPTION_DETAILS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3f6f0431-d0ec-6d0f-56e1-b9b8a43c90a3",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_SUBSCRIPTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "91e8251a-a368-345a-4006-98b9a8dbe76a",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "SUBSCRIPTION_ISSUE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0f906819-7058-74e9-35a0-7ba102b3b2ce",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "PAYMENT_MADE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cf425c1f-14f2-0935-0510-59e465870276",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "NO_RESPONSE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "76ebf4ab-83d4-705d-4128-dffdb64577c8",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "REQUEST_SUPPORT_CALL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "23294a49-4923-79d2-8a49-0d285ce229f6",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_TRIAL_REQUEST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "531bc443-76cc-c827-b3c5-621dcb74be7c",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "BANK_DETAILS_REQUEST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c9bb2655-429f-954e-a2cc-0f6a9145f471",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "REPORT_BUFFERING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3d033274-a99b-c276-df51-9b6be4aec04b",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "REPORT_ACCOUNT_ISSUE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b1801adf-afdd-003d-487a-6767980efa75",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_DISCOUNT_ACCEPTED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "971fc7be-f131-87ad-fcc2-94f6c7b3a27d",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "INSTALLATION_FAILED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c53e1c15-8416-f1bf-af45-9cc43cc56561",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "DECLINE_SUPPORT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f08590ff-70e6-4b2c-deb8-ec6b30cd8bdb",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_SECOND_TRIAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "46e80508-b4da-86fc-f657-30848e9bc8b8",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "CONFIRM_DISCOUNT_IGNORED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "86608d4c-1321-ffee-6a11-63d2e17556f9",
+                    "leftValue": "={{ $json.output.query }}",
+                    "rightValue": "SEND_CONFIRMATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7fd754c5-1072-7b15-9c13-359295b46c37",
+      "name": "REQUEST_LINK",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        128
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5969714c-3472-baba-cd18-3c93faa123fe",
+              "name": "message to send",
+              "value": "Here’s the app download link: [your-link]. Once you've installed it, just reply with 'Done' or let me know if you face any issues!",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1a96b28b-80dc-6be9-9d2e-548c8b17f552",
+      "name": "HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "042484a0-2907-3f79-18b7-39c165eed534",
+      "name": "CONFIRM_SUCCESSFUL_INSTALL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -592,
+        464
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3536ebfd-2d9a-f5a7-2f0e-b5651d6207ce",
+              "name": "message to send",
+              "value": "Awesome! Did everything install smoothly, or did you face any issues using the app?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "72f3da60-6a6d-25ab-b564-5e4225b23dcf",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -288,
+        464
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "c9c188cd-4541-98bd-0070-535511076f12",
+      "name": "INSTALLATION_ISSUE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        672
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "516b5e00-c2cb-bc88-6d36-db2d49f6b5d8",
+              "name": "message to send",
+              "value": "Thanks for letting me know. Can you share what error you're getting or where you're stuck? I’ll help you fix it right away.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f0c639f9-d995-4b9b-223a-d2c9d2d76d2f",
+      "name": "HTTP Request2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -256,
+        672
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "b4aa2c1f-f5e5-c807-5a9e-96548547a8a9",
+      "name": "ASK_SUBSCRIPTION_DETAILS",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -400,
+        800
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e2cc6d4-1065-6bf5-49ad-aba9464a788e",
+              "name": "message to send",
+              "value": "Sure! Our subscription starts at [price]. Would you like to proceed with the subscription or try a second trial first?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cb6b6f87-0095-64ee-f3f6-086d6d91f5e4",
+      "name": "HTTP Request3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        768
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "4f793f1c-6ed2-0d9a-50db-3ac9f89483c7",
+      "name": "CONFIRM_SUBSCRIPTION",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        912
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c72c9dc7-1b70-1c74-43c5-435ee7edad73",
+              "name": "message to send",
+              "value": "Great, thank you for subscribing! Did you face any issues with the process or is everything working fine?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bbda0d26-3c9c-36ef-8967-557d2c0ea165",
+      "name": "HTTP Request4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        912
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "91875243-d0fd-07a6-184b-35912982471c",
+      "name": "SUBSCRIPTION_ISSUE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        992
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eba06731-8dea-4020-ef96-927fd74d31a0",
+              "name": "message to send",
+              "value": "Sorry to hear that! Could you tell me what exactly went wrong — was it payment, login, or app access?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8bf1cf36-22e3-bffc-4fd9-096e669014c9",
+      "name": "HTTP Request5",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        992
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "89b56e05-5096-105f-f4b8-df637d350f7e",
+      "name": "PAYMENT_MADE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        1088
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3fd66a93-7283-ae4b-3a5c-76033b420f81",
+              "name": "message to send",
+              "value": "Thanks! We’re verifying your payment now. Meanwhile, please confirm your full name and preferred plan (monthly/yearly).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "90da346d-057f-7a18-6446-973a8e374d7c",
+      "name": "HTTP Request6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        1088
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "8e399aed-b377-89c2-596e-6c36b6c63547",
+      "name": "NO_RESPONSE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        1152
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3c94a012-b8a7-4a22-f8d9-993245462575",
+              "name": "message to send",
+              "value": "Just checking in — were you able to install the app and try it out? Let me know so I can help or move you forward!",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cd34e114-de8e-01ad-96b5-cb653b0ca59b",
+      "name": "HTTP Request7",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        1152
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "cc204cc9-ea85-a96a-70e0-ef4b354ad4e8",
+      "name": "REQUEST_SUPPORT_CALL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1632,
+        1200
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb538a20-b0f0-8f6a-3e75-60b54d7e6a86",
+              "name": "message to send",
+              "value": "Got it! I can schedule a quick support call. What’s the best time for you today or tomorrow?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "128a665e-7060-e23d-41d7-8476bdab981f",
+      "name": "HTTP Request8",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1872,
+        1104
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "5cb4ddba-e213-66b4-ab05-7a827d91a9a9",
+      "name": "CONFIRM_TRIAL_REQUEST",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2208,
+        1248
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "79987166-def0-bcd8-94e8-425a89320f35",
+              "name": "message to send",
+              "value": "Your second trial is now being activated ✅. After using it for a bit, let me know if you’d like to subscribe or need help.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8f634276-e29e-aeac-e581-7332c2e13279",
+      "name": "HTTP Request9",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2448,
+        1248
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "35cb1d43-1b4c-790c-6374-fe725d913986",
+      "name": "BANK_DETAILS_REQUEST",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1904,
+        1280
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e983532c-b24d-f9fd-db52-0dd9fdab17b5",
+              "name": "message to send",
+              "value": "Here are our banking details: [account info]. After sending the payment, please reply here with a screenshot or reference ID so we can confirm your subscription.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a89ad281-ea09-bcb2-34bc-5d0cd8937df7",
+      "name": "HTTP Request18",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2144,
+        1344
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "df1e6fd7-6ef6-c221-9aa0-33671ddbe9f8",
+      "name": "REPORT_BUFFERING",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        1328
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fa748236-d88b-7250-9e58-1ebc6d6daaf0",
+              "name": "message to send",
+              "value": "Sorry for the trouble. Is the issue happening on all videos or specific ones? Also, is your internet stable right now?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8cb33f4e-b5c2-30d8-6399-3dd864bf76d1",
+      "name": "HTTP Request10",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        1328
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "86f45834-20e7-b59f-0593-d5ec39138e7a",
+      "name": "REPORT_ACCOUNT_ISSUE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        1376
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "414192fa-517c-26d5-5899-eded734b407a",
+              "name": "message to send",
+              "value": "Thanks for reporting this. Can you tell me what exactly isn’t working — login issue, error message, or something else?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d336e00f-99bf-39d0-8962-5da8c51e3b82",
+      "name": "HTTP Request11",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        1392
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "9eb734ae-ac33-5558-1d83-f26abaaf8fc3",
+      "name": "CONFIRM_DISCOUNT_ACCEPTED",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        1456
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2e37cd7a-e672-04ff-d85d-cff90c563b54",
+              "name": "message to send",
+              "value": "Perfect! You can subscribe now using the discount here: [discount-link]. Once done, let me know so I can confirm it",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "25db978c-4557-7320-c8e5-9c24259703a6",
+      "name": "HTTP Request12",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        1472
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "ecd1cc24-713d-d274-a43a-463d586451a5",
+      "name": "INSTALLATION_FAILED",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -32,
+        1552
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a090ed85-f50c-5a1a-de32-8537ce586021",
+              "name": "message to send",
+              "value": "Thanks for the update. Would you like a detailed step-by-step guide or should we arrange a quick support call to fix it?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3bd6948b-04db-5189-0d27-970bd80b3485",
+      "name": "HTTP Request13",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        1616
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "09b3351e-688e-961e-d849-17e94923c4dc",
+      "name": "DECLINE_SUPPORT",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        1760
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e556c42e-7939-9a0b-f748-0629352f1084",
+              "name": "message to send",
+              "value": "No problem. I'm here if you change your mind. Were you able to make progress on installing or subscribing meanwhile?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "08f9b578-7eaa-d29b-b985-af9570e7cce8",
+      "name": "HTTP Request14",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        1792
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "270bed55-d1a4-bf23-aea4-4ae03b0a255c",
+      "name": "CONFIRM_SECOND_TRIAL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        1760
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7ecc2c8e-6f66-62a2-73e0-70bf1149b6de",
+              "name": "message to send",
+              "value": "Your second trial is active 🎉. Let me know how it goes, and once you're ready, I can guide you through subscribing",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "75cb1da5-f0d4-10f5-0e97-31562d461cf6",
+      "name": "HTTP Request15",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -96,
+        1792
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "5416d87d-dc30-c243-bb2f-930b72e65251",
+      "name": "CONFIRM_DISCOUNT_IGNORED",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -448,
+        1872
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2c756ac6-b73c-91ea-098d-8636f2f36557",
+              "name": "message to send",
+              "value": "Just a heads-up: your discount is still available if you want to use it today. Would you like me to resend the link?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2776c3bf-a8e8-ac67-a12b-40a0fb846af6",
+      "name": "HTTP Request16",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        2000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "819313ad-67e7-feb2-5907-63891bad0e42",
+      "name": "SEND_CONFIRMATION",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -560,
+        2048
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "44285ece-ad84-8dca-3d41-9483256a1ecf",
+              "name": "message to send",
+              "value": "Here’s your subscription confirmation: [confirmation details]. Is there anything else I can assist you with?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "928dd1c4-4f2a-acec-c2b1-a6f05e2f74da",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        464
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n \"phone\": \"{{ $('Webhook Trigger').item.json.body.phone }}\",\n \"last_message_time\": \"{{ new Date().toISOString() }}\",\n \"current_state\": \"waiting_install_response\",\n \"last_message_sent\": \"{{ $('AI Agent').item.json.output.query }}\"\n}\n ",
+        "options": {}
+      }
+    },
+    {
+      "id": "1d9c24ce-89ce-65ae-5e17-3f1101d07ad9",
+      "name": "Google Sheets2",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        464
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Whatsapp message tracker"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.phone }}",
+            "last_message_time": "={{ $json.last_message_time }}",
+            "last_message_sent": "={{ $json.last_message_sent }}",
+            "current_state": "={{ $json.current_state }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_message_sent",
+              "displayName": "last_message_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_message_time",
+              "displayName": "last_message_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_state",
+              "displayName": "current_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "151e01f3-003c-3e66-4c66-7b52d14e68ba",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Whatsapp message tracker"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "phone",
+              "lookupValue": "={{ $('Webhook Trigger').item.json.body.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "0f681017-72bd-5397-ef8e-b1b632798652",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        48
+      ],
+      "parameters": {
+        "amount": 30
+      }
+    },
+    {
+      "id": "20f33495-5c2d-35ea-42e1-c6ba511a4248",
+      "name": "Google Sheets1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        368,
+        192
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Whatsapp message tracker"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "phone",
+              "lookupValue": "={{ $('Webhook Trigger').item.json.body.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "78688757-2f6e-f1c2-0f2d-8177cb2f1639",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        512,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "11e99458-30de-edb7-14ea-32d377ae3772",
+              "leftValue": "={{ $json.last_message_time }}",
+              "rightValue": "={{ $('Wait').item.json.last_message_time }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "33b3d7f8-1dda-3721-2586-aa5b094cb3a0",
+      "name": "Download followup",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        144
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ca294231-b76c-e800-5f82-388a3e15cf96",
+              "name": "message to send",
+              "value": "Hi again! Just checking in — were you able to open the app and explore it a bit? Let me know if you ran into anything or if you'd like help getting started 😊",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4fc4a022-0ec4-5b88-e32d-c90e5557b4cd",
+      "name": "HTTP Request17",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        128
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_INSTANCE_TOKEN/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "YOUR_Z_API_CLIENT_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"phone\": {{$('Webhook Trigger').item.json.body.phone.replace('@c.us', '')}},\n \"message\": \"{{ $json['message to send'] }}\",\n \"status\": \"sent\"\n}\n",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REQUEST_LINK": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_SUCCESSFUL_INSTALL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSTALLATION_ISSUE": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ASK_SUBSCRIPTION_DETAILS": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_SUBSCRIPTION": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SUBSCRIPTION_ISSUE": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PAYMENT_MADE": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request6": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NO_RESPONSE": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request7": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REQUEST_SUPPORT_CALL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request8": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_TRIAL_REQUEST": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request9": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BANK_DETAILS_REQUEST": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request18",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request18": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPORT_BUFFERING": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request10": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REPORT_ACCOUNT_ISSUE": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request11": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_DISCOUNT_ACCEPTED": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request12": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSTALLATION_FAILED": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request13": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DECLINE_SUPPORT": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request14": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_SECOND_TRIAL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request15",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request15": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIRM_DISCOUNT_IGNORED": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request16",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request16": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SEND_CONFIRMATION": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request16",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "REQUEST_LINK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_SUCCESSFUL_INSTALL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "INSTALLATION_ISSUE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ASK_SUBSCRIPTION_DETAILS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_SUBSCRIPTION",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SUBSCRIPTION_ISSUE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PAYMENT_MADE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NO_RESPONSE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "REQUEST_SUPPORT_CALL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_TRIAL_REQUEST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BANK_DETAILS_REQUEST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "REPORT_BUFFERING",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "REPORT_ACCOUNT_ISSUE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_DISCOUNT_ACCEPTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "INSTALLATION_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DECLINE_SUPPORT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_SECOND_TRIAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM_DISCOUNT_IGNORED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SEND_CONFIRMATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download followup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download followup": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request17",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

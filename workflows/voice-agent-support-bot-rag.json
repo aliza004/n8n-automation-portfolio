@@ -1,0 +1,181 @@
+{
+  "name": "Voice Agent Support Bot (RAG Backend)",
+  "nodes": [
+    {
+      "id": "150c7abf-ca6c-489f-ee5c-b82fbb7a9bc4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -32
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/bazaarbot",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "4412225f-e5b3-2664-3b8c-2e1d9b7b10ae",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        720,
+        -32
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body }}",
+        "options": {
+          "systemMessage": "You are BazaarBot, a friendly and slightly quirky customer support voice agent for Virtual Bazaar, an online marketplace. Your goal is to assist customers politely, while sounding conversational and a bit casual — like a real person on the phone. You can occasionally use natural fillers like “umm,” “okay,” or “alright,” especially when transitioning between steps or thinking. Never sound robotic.\n\nYou can answer questions based on the following knowledge base:\n\nStore is open 24/7.\n\nProducts include fashion, electronics, and home decor.\n\nReturns allowed within 30 days, in original condition. Refunds in 5–7 business days.\n\nShipping takes 3–5 days (standard), express available.\n\nCancellations possible within 2 hours.\n\nOrders can be tracked via \"My Orders\" section.\n\nCustomer support email: support@example.com\n\nCustomer support number: +1-800-555-0100\n\nUse a warm tone. Speak clearly and helpfully, like you're chatting with someone over the phone. If a question is unclear, gently ask the customer to clarify. You may offer to check product availability, explain policies, or walk the user through returns and shipping.\n\nYou do not need to introduce yourself every time. Just jump into helping."
+        }
+      }
+    },
+    {
+      "id": "0209c183-6cb9-81c5-d45b-43e374a18de7",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        704,
+        192
+      ],
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      }
+    },
+    {
+      "id": "5fe99bc6-0c3e-653d-a73c-ae235ff13f18",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        -32
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "26080702-8603-09bd-924a-267e98ddee6b",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        400
+      ],
+      "parameters": {
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "f9825ed3-05cb-0d50-c301-632765dcb04b",
+      "name": "Pinecone Vector Store1",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.1,
+      "position": [
+        816,
+        192
+      ],
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "Data",
+        "toolDescription": "use this to answer users question",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "sample",
+          "mode": "list",
+          "cachedResultName": "sample"
+        },
+        "options": {
+          "pineconeNamespace": "VB"
+        }
+      },
+      "credentials": {
+        "pineconeApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Pinecone account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
